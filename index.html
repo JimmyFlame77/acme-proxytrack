@@ -17,7 +17,7 @@
       --line: rgba(255, 255, 255, .18);
       --blue: #58A6FF;
       --blue-bright: #58A6FF;
-      --blue-dark: #0866D9;
+      --blue-dark: #2177d8;
       --font-display: "transducer", "Helvetica Neue", Arial, sans-serif;
       --font-body: "transducer", "Helvetica Neue", Arial, sans-serif;
     }
@@ -114,8 +114,14 @@
       height: .48rem;
       border-radius: 50%;
       background: var(--blue);
-      box-shadow: 0 0 14px var(--blue);
+      box-shadow: 0 0 5px #fff, 0 0 18px rgba(255, 255, 255, 1);
+      animation: dot-glow-breathe 2.4s ease-in-out infinite;
       content: "";
+    }
+
+    @keyframes dot-glow-breathe {
+      0%, 100% { box-shadow: 0 0 5px #fff, 0 0 16px rgba(255, 255, 255, .95); }
+      50% { box-shadow: 0 0 8px #fff, 0 0 32px rgba(255, 255, 255, 1), 0 0 54px rgba(255, 255, 255, .75); }
     }
 
     h1 {
