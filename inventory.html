@@ -171,6 +171,11 @@
             <input type="text" id="job-address" placeholder="Job Address" required autocomplete="off">
           </div>
           <div class="form-group">
+            <label for="date-deployed" style="display: block; margin-bottom: .4rem; font-size: .85rem; color: var(--muted);">Date Deployed</label>
+            <input type="date" id="date-deployed" required>
+          </div>
+          <div class="form-group">
+            <label for="return-date" style="display: block; margin-bottom: .4rem; font-size: .85rem; color: var(--muted);">Expected Return</label>
             <input type="date" id="return-date" required>
           </div>
           <button type="submit" class="button button-primary" style="width: 100%;">Send to Job</button>
@@ -182,6 +187,14 @@
         <h2>Out on Job</h2>
         <div id="rentals-list">
           <p style="color: var(--muted);">Loading active rentals...</p>
+        </div>
+      </section>
+      
+      <!-- Panel 3: Inventory Totals -->
+      <section class="panel-card" style="grid-column: 1 / -1;">
+        <h2>Current Inventory</h2>
+        <div id="totals-list" style="display: flex; flex-direction: column; gap: .8rem;">
+          <p style="color: var(--muted);">Loading totals...</p>
         </div>
       </section>
 
@@ -218,6 +231,7 @@
     const sizeSelect = document.getElementById("dumpster-size");
     const rentalsList = document.getElementById("rentals-list");
     const dispatchForm = document.getElementById("dispatch-form");
+    const totalsList = document.getElementById("totals-list");
 
     // 1. THE BOUNCER: Check if user is legally here
     onAuthStateChanged(auth, (user) => {
@@ -228,19 +242,35 @@
       }
     });
 
-    // 2. LIVE INVENTORY FEED (Populates the Dropdown)
-    const inventoryRef = collection(db, "companies", CLIENT_ID, "equipment_categories");
-    onSnapshot(inventoryRef, (snapshot) => {
-      let optionsHtml = `<option value="">Select Equipment...</option>`;
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        // Only show sizes that have at least 1 dumpster sitting in the yard
-        if (data.currently_available > 0) {
-          optionsHtml += `<option value="${docSnap.id}">${data.size} (${data.currently_available} Available)</option>`;
-        }
+    // 2. LIVE INVENTORY FEED (Populates Dropdown & Totals Panel)
+      const inventoryRef = collection(db, "companies", CLIENT_ID, "equipment_categories");
+      onSnapshot(inventoryRef, (snapshot) => {
+        let optionsHtml = `<option value="">Select Equipment...</option>`;
+        let totalsHtml = ``;
+
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data();
+          const rentedOut = data.total_owned - data.currently_available;
+
+          // Build Dropdown (Only show if available)
+          if (data.currently_available > 0) {
+            optionsHtml += `<option value="${docSnap.id}">${data.size} (${data.currently_available} Available)</option>`;
+          }
+
+          // Build Totals Row (Shows all categories automatically)
+          totalsHtml += `
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); padding: .75rem; background: rgba(0,0,0,.2); border-radius: 8px; border: 1px solid var(--line); font-size: .9rem;">
+        <strong style="color: var(--blue-bright);">${data.size}</strong>
+        <span>Total: ${data.total_owned}</span>
+        <span>Yard: ${data.currently_available}</span>
+        <span>Out: ${rentedOut}</span>
+      </div>
+    `;
+        });
+
+        sizeSelect.innerHTML = optionsHtml;
+        totalsList.innerHTML = totalsHtml;
       });
-      sizeSelect.innerHTML = optionsHtml;
-    });
 
     // 3. LIVE RENTALS FEED (Populates the Out on Job list)
     const rentalsRef = collection(db, "companies", CLIENT_ID, "active_rentals");
@@ -260,6 +290,7 @@
             </div>
             <div class="rental-details">
               📍 ${data.address} <br>
+              📤 Deployed: ${data.date_deployed} <br>
               📅 Expected Return: ${data.expected_return}
             </div>
             <button class="button button-secondary return-btn" data-id="${docSnap.id}" data-size="${data.size}">Return to Yard</button>
@@ -274,6 +305,7 @@
       e.preventDefault();
       const sizeId = sizeSelect.value;
       const address = document.getElementById("job-address").value;
+      const dateDeployed = document.getElementById("date-deployed").value;
       const returnDate = document.getElementById("return-date").value;
 
       try {
@@ -286,6 +318,7 @@
         await addDoc(collection(db, "companies", CLIENT_ID, "active_rentals"), {
           size: sizeId,
           address: address,
+          date_deployed: dateDeployed,
           expected_return: returnDate
         });
 
