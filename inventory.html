@@ -88,6 +88,7 @@
 
     .panel-card {
       min-width: 0;
+      overflow: hidden;
       padding: 2rem;
       border: 1px solid var(--line);
       border-radius: 20px;
@@ -105,6 +106,7 @@
     .form-group { min-width: 0; margin-bottom: 1.2rem; }
     .form-group input, .form-group select {
       width: 100%;
+      max-width: 100%;
       min-width: 0;
       padding: .85rem 1.1rem;
       border: 1px solid var(--line);
@@ -114,6 +116,9 @@
       font-family: var(--font-body);
       font-size: .95rem;
       outline: none;
+    }
+    .form-group input[type="date"] {
+      padding-right: .6rem;
     }
     .form-group select { cursor: pointer; }
     .form-group input:focus, .form-group select:focus {
