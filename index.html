@@ -170,6 +170,7 @@
       letter-spacing: .01em;
       line-height: 1;
       text-decoration: none;
+      cursor: pointer;
       transition: transform .2s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
     }
 
@@ -194,6 +195,68 @@
     }
 
     .button-secondary:hover { border-color: rgba(255,255,255,.48); background: rgba(255,255,255,.08); }
+
+    /* Login Form Styles */
+    .login-card {
+      width: min(100%, 400px);
+      padding: 2.5rem 2rem;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, .45);
+      text-align: center;
+    }
+
+    .login-card h2 {
+      margin: 0 0 .5rem;
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .login-subtitle {
+      margin: 0 0 1.75rem;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.1rem;
+      text-align: left;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: .85rem 1.1rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(7, 11, 22, .6);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .form-group input:focus {
+      border-color: var(--blue-bright);
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, .25);
+    }
+
+    .login-card .button {
+      width: 100%;
+      margin-top: .6rem;
+    }
+
+    #login-error {
+      display: none;
+      margin-top: 1rem;
+      color: #ff6b6b;
+      font-size: .84rem;
+      line-height: 1.4;
+    }
 
     .site-footer {
       display: grid;
@@ -252,13 +315,31 @@
     </header>
 
     <main>
-      <section class="hero" aria-labelledby="page-title">
-        <p class="eyebrow">Client Inventory & Tracking Portal</p>
+      <!-- 1. LOGIN CARD (Shown when user is logged out) -->
+      <section id="login-section" class="login-card">
+        <h2>Client Portal</h2>
+        <p class="login-subtitle">Sign in to access your inventory and services</p>
+        <form id="login-form">
+          <div class="form-group">
+            <input type="email" id="login-email" placeholder="Email address" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <input type="password" id="login-password" placeholder="Password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="button button-primary">Sign In</button>
+          <p id="login-error"></p>
+        </form>
+      </section>
+
+      <!-- 2. HERO HUB (Shown when user is logged in) -->
+      <section id="hub-section" class="hero" aria-labelledby="page-title" style="display: none;">
+        <p class="eyebrow">Client Inventory &amp; Tracking Portal</p>
         <h1 id="page-title">Proxy <span>Track</span></h1>
         <p class="hero-copy">Every asset matters. From availability to location, ProxyTracker keeps your inventory organized, accurate, and easy to manage—so you always know what’s ready, rented, or on the move.</p>
         <nav class="actions" aria-label="Client portal actions">
-          <a class="button button-primary" href="https://proxymarketing.ai">Inventory</a>
+          <a class="button button-primary" href="inventory.html">Inventory</a>
           <a class="button button-secondary" href="mailto:support@proxymarketing.ai">Support</a>
+          <button id="logout-btn" class="button button-secondary" type="button">Log Out</button>
         </nav>
       </section>
     </main>
@@ -275,6 +356,77 @@
       <p class="copyright">© <span id="year"></span> Proxy Marketing &amp; Tech</p>
     </footer>
   </div>
+
   <script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+
+ <!-- FIREBASE AUTH SCRIPT -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+    import { 
+      getAuth, 
+      signInWithEmailAndPassword, 
+      signOut, 
+      onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyANylwX8bYNpqQxkb3U38HGNuch3C6CZ10",
+      authDomain: "proxytrack-database.firebaseapp.com",
+      projectId: "proxytrack-database",
+      storageBucket: "proxytrack-database.firebasestorage.app",
+      messagingSenderId: "78706187908",
+      appId: "1:78706187908:web:f9b8aff289429400d9acd1",
+      measurementId: "G-2MDW3CR02G"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+
+    const loginSection = document.getElementById("login-section");
+    const hubSection = document.getElementById("hub-section");
+    const loginForm = document.getElementById("login-form");
+    const loginError = document.getElementById("login-error");
+    const logoutBtn = document.getElementById("logout-btn");
+
+    // The Bouncer: Listens for authentication status
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        loginSection.style.display = "none";
+        hubSection.style.display = "block";
+      } else {
+        loginSection.style.display = "block";
+        hubSection.style.display = "none";
+      }
+    });
+
+    // Handle Form Submit
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      loginError.style.display = "none";
+
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (error) {
+        loginError.textContent = "Invalid email or password. Please try again.";
+        loginError.style.display = "block";
+      }
+    });
+
+    // Handle Logout
+    if (logoutBtn) {
+      logoutBtn.addEventListener("click", () => {
+        signOut(auth);
+      });
+    }
+  </script>
+</body>
+</html>
 </body>
 </html>
