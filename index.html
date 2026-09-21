@@ -363,12 +363,18 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
-    import { 
-      getAuth, 
-      signInWithEmailAndPassword, 
-      signOut, 
-      onAuthStateChanged 
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+    // ADDED: Firestore imports to read the company tier
+    import {
+      getFirestore,
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
     // Your web app's Firebase configuration
     const firebaseConfig = {
@@ -385,6 +391,9 @@
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
     const auth = getAuth(app);
+    const db = getFirestore(app); // Initialize database
+
+    const CLIENT_ID = "acme"; // The specific client profile to look up
 
     const loginSection = document.getElementById("login-section");
     const hubSection = document.getElementById("hub-section");
@@ -392,12 +401,47 @@
     const loginError = document.getElementById("login-error");
     const logoutBtn = document.getElementById("logout-btn");
 
-    // The Bouncer: Listens for authentication status
-    onAuthStateChanged(auth, (user) => {
+    // The Bouncer: Listens for authentication status and checks the tier
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // Logged in: Hide login form, show hub
         loginSection.style.display = "none";
         hubSection.style.display = "block";
+
+        try {
+          // Fetch the company's profile from Firebase
+          const companyRef = doc(db, "companies", CLIENT_ID);
+          const companySnap = await getDoc(companyRef);
+
+          if (companySnap.exists()) {
+            const data = companySnap.data();
+            const pageTitle = document.getElementById("page-title");
+            const actionsNav = document.querySelector(".actions");
+
+            // If they have ProxyTrack+, upgrade the UI dynamically
+            if (data.tier === "plus") {
+              pageTitle.innerHTML = "Proxy <span>Track+</span>";
+
+              // Add the Truck Tracker button if it doesn't exist yet
+              if (!document.getElementById("tracker-btn")) {
+                const trackerBtn = document.createElement("a");
+                trackerBtn.id = "tracker-btn";
+                trackerBtn.className = "button button-primary";
+                trackerBtn.href = "#"; // Link this to the tracker page later
+                trackerBtn.innerText = "Truck Tracker";
+
+                // Insert it right before the Support button
+                const supportBtn = document.querySelector('a[href^="mailto"]');
+                actionsNav.insertBefore(trackerBtn, supportBtn);
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching company data:", error);
+        }
+
       } else {
+        // Not logged in: Show login form, hide hub
         loginSection.style.display = "block";
         hubSection.style.display = "none";
       }
