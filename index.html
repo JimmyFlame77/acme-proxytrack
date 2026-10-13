@@ -434,6 +434,17 @@
                 const supportBtn = document.querySelector('a[href^="mailto"]');
                 actionsNav.insertBefore(trackerBtn, supportBtn);
               }
+
+              if (!document.getElementById("payment-btn")) {
+                const paymentBtn = document.createElement("a");
+                paymentBtn.id = "payment-btn";
+                paymentBtn.className = "button button-primary";
+                paymentBtn.href = "#"; // Link this to the payment page later
+                paymentBtn.innerText = "Payment+";
+
+                const supportBtn = document.querySelector('a[href^="mailto"]');
+                actionsNav.insertBefore(paymentBtn, supportBtn);
+              }
             }
           }
         } catch (error) {
