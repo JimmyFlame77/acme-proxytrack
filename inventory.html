@@ -44,6 +44,10 @@
       border-bottom: 1px solid var(--line);
     }
     .brand-logo img { height: clamp(28px, 8vw, 40px); }
+    .header-actions {
+      display: flex;
+      gap: .75rem;
+    }
     
     .button {
       display: inline-flex;
@@ -187,7 +191,10 @@
     <a class="brand-logo" href="index.html">
       <img src="img/logo.png" alt="Proxy Marketing & Tech">
     </a>
-    <button id="nav-logout-btn" class="button button-secondary">Log Out</button>
+    <div class="header-actions">
+      <a href="/index.html" class="button button-primary">Home</a>
+      <button id="nav-logout-btn" class="button button-secondary">Log Out</button>
+    </div>
   </header>
 
   <main>
