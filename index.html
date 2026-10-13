@@ -420,7 +420,7 @@
 
             // If they have ProxyTrack+, upgrade the UI dynamically
             if (data.tier === "plus") {
-              pageTitle.innerHTML = "Proxy <span>Track+</span>";
+              pageTitle.innerHTML = "Proxy <span>Track</span>+";
 
               // Add the Truck Tracker button if it doesn't exist yet
               if (!document.getElementById("tracker-btn")) {
@@ -428,7 +428,7 @@
                 trackerBtn.id = "tracker-btn";
                 trackerBtn.className = "button button-primary";
                 trackerBtn.href = "#"; // Link this to the tracker page later
-                trackerBtn.innerText = "Truck Tracker";
+                trackerBtn.innerText = "Truck Tracker+";
 
                 // Insert it right before the Support button
                 const supportBtn = document.querySelector('a[href^="mailto"]');
