@@ -216,6 +216,9 @@
             <label for="return-date" style="display: block; margin-bottom: .4rem; font-size: .85rem; color: var(--muted);">Expected Return</label>
             <input type="date" id="return-date" required>
           </div>
+          <div class="form-group">
+            <input type="text" id="job-notes" placeholder="Job Notes/Instructions" required autocomplete="off">
+          </div>
           <button type="submit" class="button button-primary" style="width: 100%;">Send to Job</button>
         </form>
       </section>
@@ -270,6 +273,13 @@
     const rentalsList = document.getElementById("rentals-list");
     const dispatchForm = document.getElementById("dispatch-form");
     const totalsList = document.getElementById("totals-list");
+    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[character]);
 
     // 1. THE BOUNCER: Check if user is legally here
     onAuthStateChanged(auth, (user) => {
@@ -330,7 +340,8 @@
               👤 ${data.customer_name} <br>
               📍 ${data.address} <br>
               📤 Deployed: ${data.date_deployed} <br>
-              📅 Expected Return: ${data.expected_return}
+              📅 Expected Return: ${data.expected_return} <br>
+              📝 Notes: ${escapeHtml(data.notes || "No notes provided.")}
             </div>
             <button class="button button-secondary return-btn" data-id="${docSnap.id}" data-size="${data.size}">Return to Yard</button>
           </div>
@@ -347,6 +358,7 @@
       const address = document.getElementById("job-address").value;
       const dateDeployed = document.getElementById("date-deployed").value;
       const returnDate = document.getElementById("return-date").value;
+      const notes = document.getElementById("job-notes").value;
 
       try {
         // Subtract 1 from available stock
@@ -360,7 +372,8 @@
           customer_name: customerName,
           address: address,
           date_deployed: dateDeployed,
-          expected_return: returnDate
+          expected_return: returnDate,
+          notes: notes
         });
 
         dispatchForm.reset();
