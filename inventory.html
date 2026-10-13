@@ -249,171 +249,156 @@
     </div>
   </main>
 
-  <!-- FIREBASE SCRIPTS -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
-    import { 
-      getFirestore, collection, doc, onSnapshot, 
-      addDoc, deleteDoc, updateDoc, increment 
-    } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+    <!-- FIREBASE SCRIPTS -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+      import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+      import {
+        getFirestore, collection, doc, getDoc, onSnapshot,
+        addDoc, deleteDoc, updateDoc, increment
+      } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-    // --- YOUR APP CONFIGURATION ---
-    const CLIENT_ID = "acme"; // Change this single line for new clients
-    
-    // PASTE YOUR EXACT CONFIG KEYS HERE:
-    const firebaseConfig = {
-      apiKey: "AIzaSyANylwX8bYNpqQxkb3U38HGNuch3C6CZ10",
-      authDomain: "proxytrack-database.firebaseapp.com",
-      projectId: "proxytrack-database",
-      storageBucket: "proxytrack-database.firebasestorage.app",
-      messagingSenderId: "78706187908",
-      appId: "1:78706187908:web:f9b8aff289429400d9acd1"
-    };
+      const CLIENT_ID = "acme"; // Change this single line for new clients
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+      const firebaseConfig = {
+        apiKey: "AIzaSyANylwX8bYNpqQxkb3U38HGNuch3C6CZ10",
+        authDomain: "proxytrack-database.firebaseapp.com",
+        projectId: "proxytrack-database",
+        storageBucket: "proxytrack-database.firebasestorage.app",
+        messagingSenderId: "78706187908",
+        appId: "1:78706187908:web:f9b8aff289429400d9acd1"
+      };
 
-    const pageLoader = document.getElementById("page-loader");
-    const sizeSelect = document.getElementById("dumpster-size");
-    const rentalsList = document.getElementById("rentals-list");
-    const dispatchForm = document.getElementById("dispatch-form");
-    const totalsList = document.getElementById("totals-list");
-    const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#039;"
-    })[character]);
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const db = getFirestore(app);
 
-    // 1. THE BOUNCER: Check if user is legally here
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        window.location.href = "index.html"; // Kick them out if not logged in
-      } else {
-        pageLoader.style.display = "none"; // Reveal the dashboard
-      }
-    });
+      const pageLoader = document.getElementById("page-loader");
+      const sizeSelect = document.getElementById("dumpster-size");
+      const rentalsList = document.getElementById("rentals-list");
+      const dispatchForm = document.getElementById("dispatch-form");
+      const totalsList = document.getElementById("totals-list");
+      const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      })[character]);
 
-    // 2. LIVE INVENTORY FEED (Populates Dropdown & Totals Panel)
-      const inventoryRef = collection(db, "companies", CLIENT_ID, "equipment_categories");
-      onSnapshot(inventoryRef, (snapshot) => {
-        let optionsHtml = `<option value="">Select Equipment...</option>`;
-        let totalsHtml = ``;
+      // 1. THE BOUNCER: Multi-tenant validation
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          window.location.href = "index.html";
+        } else {
+          try {
+            // Verify that this user's UID is authorized for this CLIENT_ID
+            const companyRef = doc(db, "companies", CLIENT_ID);
+            await getDoc(companyRef); // Fails here if not in allowedUsers
 
-        snapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const rentedOut = data.total_owned - data.currently_available;
-
-          // Build Dropdown (Only show if available)
-          if (data.currently_available > 0) {
-            optionsHtml += `<option value="${docSnap.id}">${data.size} (${data.currently_available} Available)</option>`;
+            // Only initialize feeds if authorized
+            setupFeeds();
+            pageLoader.style.display = "none";
+          } catch (error) {
+            console.error("Authorization check failed:", error);
+            await signOut(auth);
+            window.location.href = "index.html"; // Boot out on failure
           }
-
-          // Build Totals Row (Shows all categories automatically)
-          totalsHtml += `
-      <div class="totals-row">
-        <strong style="color: var(--blue-bright);">${data.size}</strong>
-        <span>Total: ${data.total_owned}</span>
-        <span>In-Stock: ${data.currently_available}</span>
-        <span>Out: ${rentedOut}</span>
-      </div>
-    `;
-        });
-
-        sizeSelect.innerHTML = optionsHtml;
-        totalsList.innerHTML = totalsHtml;
+        }
       });
 
-    // 3. LIVE RENTALS FEED (Populates the Out on Job list)
-    const rentalsRef = collection(db, "companies", CLIENT_ID, "active_rentals");
-    onSnapshot(rentalsRef, (snapshot) => {
-      if (snapshot.empty) {
-        rentalsList.innerHTML = `<p style="color: var(--muted);">Everything is in the yard.</p>`;
-        return;
-      }
-      
-      let listHtml = "";
-      snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        listHtml += `
-          <div class="rental-item">
-            <div class="rental-header">
-              <span>${data.size}</span>
-            </div>
-            <div class="rental-details">
-              👤 ${data.customer_name} <br>
-              📍 ${data.address} <br>
-              📤 Deployed: ${data.date_deployed} <br>
-              📅 Expected Return: ${data.expected_return} <br>
-              📝 Notes: ${escapeHtml(data.notes || "No notes provided.")}
-            </div>
-            <button class="button button-secondary return-btn" data-id="${docSnap.id}" data-size="${data.size}">Return to Yard</button>
-          </div>
-        `;
-      });
-      rentalsList.innerHTML = listHtml;
-    });
-
-    // 4. DISPATCH ACTION (Send Dumpster Out)
-    dispatchForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const sizeId = sizeSelect.value;
-      const customerName = document.getElementById("customer-name").value;
-      const address = document.getElementById("job-address").value;
-      const dateDeployed = document.getElementById("date-deployed").value;
-      const returnDate = document.getElementById("return-date").value;
-      const notes = document.getElementById("job-notes").value;
-
-      try {
-        // Subtract 1 from available stock
-        await updateDoc(doc(db, "companies", CLIENT_ID, "equipment_categories", sizeId), {
-          currently_available: increment(-1)
-        });
-        
-        // Add new active rental record
-        await addDoc(collection(db, "companies", CLIENT_ID, "active_rentals"), {
-          size: sizeId,
-          customer_name: customerName,
-          address: address,
-          date_deployed: dateDeployed,
-          expected_return: returnDate,
-          notes: notes
+      // Wrapped database operations in setupFeeds so they only run after auth check succeeds
+      function setupFeeds() {
+        // LIVE INVENTORY FEED
+        const inventoryRef = collection(db, "companies", CLIENT_ID, "equipment_categories");
+        onSnapshot(inventoryRef, (snapshot) => {
+          let optionsHtml = `<option value="">Select Equipment...</option>`;
+          let totalsHtml = ``;
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const rentedOut = data.total_owned - data.currently_available;
+            if (data.currently_available > 0) {
+              optionsHtml += `<option value="${docSnap.id}">${data.size} (${data.currently_available} Available)</option>`;
+            }
+            totalsHtml += `
+                <div class="totals-row">
+                  <strong style="color: var(--blue-bright);">${data.size}</strong>
+                  <span>Total: ${data.total_owned}</span>
+                  <span>In-Stock: ${data.currently_available}</span>
+                  <span>Out: ${rentedOut}</span>
+                </div>`;
+          });
+          sizeSelect.innerHTML = optionsHtml;
+          totalsList.innerHTML = totalsHtml;
         });
 
-        dispatchForm.reset();
-      } catch (error) {
-        alert("Error dispatching: " + error.message);
+        // LIVE RENTALS FEED
+        const rentalsRef = collection(db, "companies", CLIENT_ID, "active_rentals");
+        onSnapshot(rentalsRef, (snapshot) => {
+          if (snapshot.empty) {
+            rentalsList.innerHTML = `<p style="color: var(--muted);">Everything is in the yard.</p>`;
+            return;
+          }
+          let listHtml = "";
+          snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            listHtml += `
+                <div class="rental-item">
+                  <div class="rental-header"><span>${data.size}</span></div>
+                  <div class="rental-details">
+                    👤 ${data.customer_name} <br>
+                    📍 ${data.address} <br>
+                    📤 Deployed: ${data.date_deployed} <br>
+                    📅 Expected Return: ${data.expected_return} <br>
+                    📝 Notes: ${escapeHtml(data.notes || "No notes provided.")}
+                  </div>
+                  <button class="button button-secondary return-btn" data-id="${docSnap.id}" data-size="${data.size}">Return to Yard</button>
+                </div>`;
+          });
+          rentalsList.innerHTML = listHtml;
+        });
       }
-    });
 
-    // 5. RETURN ACTION (Bring Dumpster Back)
-    // We use event delegation since the buttons are created dynamically
-    rentalsList.addEventListener("click", async (e) => {
-      if (e.target.classList.contains("return-btn")) {
-        const rentalId = e.target.getAttribute("data-id");
-        const sizeId = e.target.getAttribute("data-size"); // Matches document ID
+      // DISPATCH ACTION
+      dispatchForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const sizeId = sizeSelect.value;
+        const customerName = document.getElementById("customer-name").value;
+        const address = document.getElementById("job-address").value;
+        const dateDeployed = document.getElementById("date-deployed").value;
+        const returnDate = document.getElementById("return-date").value;
+        const notes = document.getElementById("job-notes").value;
 
         try {
-          // Delete active rental record
-          await deleteDoc(doc(db, "companies", CLIENT_ID, "active_rentals", rentalId));
-          
-          // Add 1 back to available stock
           await updateDoc(doc(db, "companies", CLIENT_ID, "equipment_categories", sizeId), {
-            currently_available: increment(1)
+            currently_available: increment(-1)
           });
+          await addDoc(collection(db, "companies", CLIENT_ID, "active_rentals"), {
+            size: sizeId, customer_name: customerName, address: address,
+            date_deployed: dateDeployed, expected_return: returnDate, notes: notes
+          });
+          dispatchForm.reset();
         } catch (error) {
-          alert("Error returning: " + error.message);
+          alert("Error dispatching: " + error.message);
         }
-      }
-    });
+      });
 
-    // Handle Logout
-    document.getElementById("nav-logout-btn").addEventListener("click", () => {
-      signOut(auth); // The bouncer will automatically redirect to index.html
-    });
-  </script>
+      // RETURN ACTION
+      rentalsList.addEventListener("click", async (e) => {
+        if (e.target.classList.contains("return-btn")) {
+          const rentalId = e.target.getAttribute("data-id");
+          const sizeId = e.target.getAttribute("data-size");
+          try {
+            await deleteDoc(doc(db, "companies", CLIENT_ID, "active_rentals", rentalId));
+            await updateDoc(doc(db, "companies", CLIENT_ID, "equipment_categories", sizeId), {
+              currently_available: increment(1)
+            });
+          } catch (error) {
+            alert("Error returning: " + error.message);
+          }
+        }
+      });
+
+      // Handle Logout
+      document.getElementById("nav-logout-btn").addEventListener("click", () => {
+        signOut(auth);
+      });
+    </script>
 </body>
 </html>
